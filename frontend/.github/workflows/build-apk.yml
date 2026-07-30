@@ -1,0 +1,54 @@
+name: Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+# The app files were uploaded inside a "now-app-for-github" subfolder, so all
+# build commands run from there.
+defaults:
+  run:
+    working-directory: now-app-for-github
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Preserve pubspec
+        run: cp pubspec.yaml /tmp/pubspec.yaml
+
+      - name: Generate Android project files
+        run: flutter create --platforms=android --org com.now.app --project-name luxe_commerce .
+
+      - name: Restore pubspec
+        run: cp /tmp/pubspec.yaml pubspec.yaml
+
+      - name: Ensure asset folders exist
+        run: mkdir -p assets/images assets/icons assets/lottie
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Build release APK
+        run: flutter build apk --release --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: now-app-apk
+          path: now-app-for-github/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
